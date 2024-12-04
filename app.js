@@ -40,7 +40,18 @@ db.serialize(() => {
 // Routes
 // users
 app.get("/users", (req, res) => {
-  db.all("SELECT * FROM users", (err, rows) => {
+  const { name, email } = req.query;
+  let sql = "SELECT * FROM users WHERE 1 = 1";
+  let params = [];
+  if (name) {
+    sql += " AND name LIKE ?";
+    params.push(`%${name}%`);  // Use LIKE for partial matches
+  }
+  if (email) {
+    sql += " AND email LIKE ?";
+    params.push(`%${email}%`);  // Use LIKE for partial matches
+  }
+  db.all(sql, params, (err, rows) => {
     if (err) return res.status(500).json({ error: err.message });
     res.json(rows);
   });
@@ -80,7 +91,7 @@ app.put("/users/:id", (req, res) => {
   const sql = `UPDATE users SET ${updates.join(", ")} WHERE id = ?`;
   db.run(sql, params, function (err) {
     if (err) return res.status(500).json({ error: err.message });
-    if (this.changes === 0) return res.status(404).json({ error: "User not found" });
+    if (this.changes === 0) return res.status(404).json({ error: ERROR_MESSAGE.USER_NOT_FOUND });
     res.json({ id: req.params.id, ...req.body });
   });
 });

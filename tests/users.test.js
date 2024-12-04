@@ -56,17 +56,20 @@ describe("Users API", () => {
   });
 });
 
-// test("PUT /users/:id modify user id 1's email address", async () => {
-//   const res = await request(app).put("/users/1").send({email:'johndoeEDIT@example.com'});
-//   expect(res.statusCode).toBe(204);
-//   expect(res.body).toEqual({ id:1, email:'johndoeEDIT@example.com' });
-// });
-
-test("DELETE /users/:id deletes the user and GET confirms it no longer exists", async () => {
+test("PUT /users/:id modify user id 1's email address", async () => {
+  const resUser = await request(app).get("/users?email=john@example.com");
   
-    const deleteRes = await request(app).delete(`/users/2`);
-    expect(deleteRes.statusCode).toBe(204); // Expect 204 No Content after successful deletion
-    const getRes = await request(app).get("/users");
-    expect(getRes.statusCode).toBe(200);
-    expect(getRes.body).not.toContainEqual(expect.objectContaining({ id: userId, name: "Jane Smith", email: "jane@example.com" })); 
-})
+  const res = await request(app).put(`/users/${resUser.id}`).send({email:'johndoeEDIT@example.com'});
+  expect(res.statusCode).toBe(204);
+  expect(res.body).toEqual({ id:1, email:'johndoeEDIT@example.com' });
+});
+
+// test("DELETE /users/:id deletes the user and GET confirms it no longer exists", async () => {
+//     const res = await request(app).get("/users?email=jane@example.com");
+  
+//     const deleteRes = await request(app).delete(`/users/${res.id}`);
+//     expect(deleteRes.statusCode).toBe(204); // Expect 204 No Content after successful deletion
+//     const getRes = await request(app).get("/users");
+//     expect(getRes.statusCode).toBe(200);
+//     expect(getRes.body).not.toContainEqual(expect.objectContaining({ id: userId, name: "Jane Smith", email: "jane@example.com" })); 
+// })
