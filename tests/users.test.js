@@ -1,5 +1,6 @@
 const { app, db } = require("../app");
 const request = require("supertest");
+const ERROR_MESSAGE = require("../constants");
 
 let server;
 
@@ -21,7 +22,11 @@ describe("Users API", () => {
   test("GET /users returns all users", async () => {
     const res = await request(app).get("/users");
     expect(res.statusCode).toBe(200);
-    // expect(res.body).toEqual([{ id: 1, name: "John Doe", email: "john@example.com" }]);
+    expect(res.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "John Doe", email: "john@example.com" }),
+      ])
+    );
   });
 
   test("POST /users creates a new user", async () => {
@@ -32,44 +37,94 @@ describe("Users API", () => {
     expect(res.body.name).toBe(newUser.name);
     expect(res.body.email).toBe(newUser.email);
   });
-  
+
   test("GET verify user Jane Smith exists with email jane@example.com", async() => {
-      const getRes = await request(app).get("/users");
-      expect(getRes.statusCode).toBe(200);
-      expect(getRes.body).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ name: "Jane Smith", email: "jane@example.com" }),
-        ])
-      );
+    const getRes = await request(app).get("/users");
+    expect(getRes.statusCode).toBe(200);
+    // do not expect id of Jane Smith to be 2 for future proofing!
+    expect(getRes.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ name: "Jane Smith", email: "jane@example.com" }),
+      ])
+    );
   })
 
   test("GET /users/:id returns a single user", async () => {
     const res = await request(app).get("/users/1");
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({ id: 1, name: "John Doe", email: "john@example.com" });
+    expect(res.body).toEqual(
+      expect.objectContaining({name: "John Doe", email: "john@example.com" })
+    );
   });
 
   test("GET /users/:id should return 404 if user does not exist", async () => {
-    const res = await request(app).get("/users/9999");
-    expect(res.statusCode).toBe(404);
-    expect(res.body).toEqual({ error: "User not found" });
+      const res = await request(app).get("/users/9999");
+      expect(res.statusCode).toBe(404);
+      expect(res.body).toEqual({ error: ERROR_MESSAGE.USER_NOT_FOUND });
+    });
+    
+  test("GET /users?email=jane@example.com should return 200 for query param email", async () => {
+    const res = await request(app).get("/users?email=jane@example.com");
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          email: "jane@example.com",
+          name: "Jane Smith"
+        })
+      ])
+    );
   });
-});
-
-test("PUT /users/:id modify user id 1's email address", async () => {
-  const resUser = await request(app).get("/users?email=john@example.com");
   
-  const res = await request(app).put(`/users/${resUser.id}`).send({email:'johndoeEDIT@example.com'});
-  expect(res.statusCode).toBe(204);
-  expect(res.body).toEqual({ id:1, email:'johndoeEDIT@example.com' });
-});
-
-// test("DELETE /users/:id deletes the user and GET confirms it no longer exists", async () => {
-//     const res = await request(app).get("/users?email=jane@example.com");
+  test("PUT /users/:id modify jane@example.com email address", async () => {
+    const resUser = await request(app).get("/users?email=jane@example.com");
+    expect(resUser.statusCode).toBe(200);
+    expect(resUser.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          email: "jane@example.com",
+          name: "Jane Smith"
+        })
+      ])
+    );
+    const resUserActual = resUser.body[0];
+    
+    const res = await request(app).put(`/users/${resUserActual.id}`).send({email:'janeEDIT@example.com'});
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({id: resUserActual.id, name: "Jane Smith", email: "janeEDIT@example.com" });
+  });
   
-//     const deleteRes = await request(app).delete(`/users/${res.id}`);
-//     expect(deleteRes.statusCode).toBe(204); // Expect 204 No Content after successful deletion
-//     const getRes = await request(app).get("/users");
-//     expect(getRes.statusCode).toBe(200);
-//     expect(getRes.body).not.toContainEqual(expect.objectContaining({ id: userId, name: "Jane Smith", email: "jane@example.com" })); 
-// })
+  test("PUT /users/:id return 404 for user that does not exist", async () => {
+    const res = await request(app).put(`/users/9999`).send({email:'janeEDIT@example.com'});
+    expect(res.statusCode).toBe(404);
+    expect(res.body).toEqual({error:ERROR_MESSAGE.USER_NOT_FOUND});
+  });
+  
+  test("DELETE /users/:id deletes the user and GET confirms it no longer exists", async () => {
+    // emails are unique so I know I will get the unique user I expect
+    const resUser = await request(app).get("/users?email=janeEDIT@example.com");
+    expect(resUser.statusCode).toBe(200);
+    expect(resUser.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          email: "janeEDIT@example.com",
+          name: "Jane Smith"
+        })
+      ])
+    );
+    const resUserActual = resUser.body[0];
+    
+    const deleteRes = await request(app).delete(`/users/${resUserActual.id}`);
+    expect(deleteRes.statusCode).toBe(204);
+    const getRes = await request(app).get("/users");
+    expect(getRes.statusCode).toBe(200);
+    expect(getRes.body).not.toContainEqual(expect.objectContaining({ id: resUserActual.id, name: "Jane Smith", email: "janeEDIT@example.com" })); 
+  })
+  
+  
+  test("DELETE /users/:id attempt to delete user that does not exist get 404", async () => {
+    const deleteRes = await request(app).delete(`/users/9999`);
+    expect(deleteRes.statusCode).toBe(404);
+    expect(deleteRes.body).toEqual({error:ERROR_MESSAGE.USER_NOT_FOUND});
+  })
+});

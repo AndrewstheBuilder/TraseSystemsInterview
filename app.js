@@ -52,7 +52,10 @@ app.get("/users", (req, res) => {
     params.push(`%${email}%`);  // Use LIKE for partial matches
   }
   db.all(sql, params, (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
+    if (err) {
+      console.error("Error executing SQL query:",err)
+      return res.status(500).json({ error: err.message });
+    }
     res.json(rows);
   });
 });
@@ -92,7 +95,14 @@ app.put("/users/:id", (req, res) => {
   db.run(sql, params, function (err) {
     if (err) return res.status(500).json({ error: err.message });
     if (this.changes === 0) return res.status(404).json({ error: ERROR_MESSAGE.USER_NOT_FOUND });
-    res.json({ id: req.params.id, ...req.body });
+    
+    // SQLLite does not support RETURNING * after Update so run SELECT
+    const getUserSql = "SELECT * FROM users WHERE id = ?";
+    db.get(getUserSql, [req.params.id], (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!row) return res.status(404).json({ error: ERROR_MESSAGE.USER_NOT_FOUND });
+      res.json(row);
+    });
   });
 });
 
