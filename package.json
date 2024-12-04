@@ -9,7 +9,8 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node app.js",
+    "test": "jest"
   },
   "repository": {
     "type": "git",
@@ -21,5 +22,9 @@
   "bugs": {
     "url": "https://github.com/AndrewstheBuilder/TraseSystemsInterview/issues"
   },
-  "homepage": "https://github.com/AndrewstheBuilder/TraseSystemsInterview#readme"
+  "homepage": "https://github.com/AndrewstheBuilder/TraseSystemsInterview#readme",
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
+  }
 }
