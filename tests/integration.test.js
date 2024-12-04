@@ -81,4 +81,44 @@ describe("Integration Tests", () => {
     expect(getAllPosts.body).not.toContainEqual(expect.objectContaining({ id: postRes.body.id })); 
 
   });
+  
+  test("Create a user, create a post, fetch the post, delete the user tied to post, fetch all posts post tied to user should not be there", async () => {
+    // Create a user
+    const newUser = {
+      name: "Test User 3",
+      email: "test3@example.com",
+    }
+    const userRes = await request(app).post("/users").send(newUser);
+    expect(userRes.statusCode).toBe(201);
+    expect(userRes.body).toHaveProperty("id");
+    expect(userRes.body.name).toBe(newUser.name);
+    expect(userRes.body.email).toBe(newUser.email);
+
+    // Create a post
+    const postRes = await request(app).post("/posts").send({
+      title: "Test Post 3",
+      content: "This is a test post 3.",
+      user_id: userRes.body.id,
+    });
+    expect(postRes.statusCode).toBe(201);
+
+    // Get the post
+    const getPostRes = await request(app).get(`/posts/${postRes.body.id}`);
+    expect(getPostRes.statusCode).toBe(200);
+    expect(getPostRes.body).toEqual({
+      id: postRes.body.id,
+      title: "Test Post 3",
+      content: "This is a test post 3.",
+      user_id: userRes.body.id,
+    });
+
+    // Delete a user tied to the post we just created
+    const deleteRes = await request(app).delete(`/users/${userRes.body.id}`);
+    expect(deleteRes.statusCode).toBe(204);
+    
+    // Get all posts deleted post should not be there
+    const getAllPosts = await request(app).get(`/posts`)
+    expect(getAllPosts.body).not.toContainEqual(expect.objectContaining({ id: postRes.body.id })); 
+
+  });
 });

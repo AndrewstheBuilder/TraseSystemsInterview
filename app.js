@@ -109,10 +109,42 @@ app.put("/users/:id", (req, res) => {
 
 
 app.delete("/users/:id", (req, res) => {
-  db.run("DELETE FROM users WHERE id = ?", [req.params.id], function (err) {
-    if (err) return res.status(500).json({ error: err.message });
-    if (this.changes === 0) return res.status(404).json({ error: ERROR_MESSAGE.USER_NOT_FOUND });
-    res.status(204).send();
+  const userId = req.params.id
+  // DELETE related user posts before deleting user
+  // TODO: LIMITATION maybe soft delete user to avoid having to delete post
+
+  // Begin a transaction
+  db.run("BEGIN TRANSACTION;", (err) => {
+    if (err) {
+      return res.status(500).json({ error: "Failed to start transaction" });
+    }
+    db.run("DELETE FROM posts WHERE id = ?", [userId], function (err) {
+      if (err) {
+        return db.run("ROLLBACK;", () => {
+          return res.status(500).json({ error: err.message });
+        });
+      }
+      db.run("DELETE FROM users WHERE id = ?", [userId], function (err) {
+        if (err) {
+          return db.run("ROLLBACK;", () => {
+            return res.status(500).json({ error: err.message });
+          });
+        }
+        if (this.changes === 0) {
+          return db.run("ROLLBACK;", () => {
+            return res.status(404).json({ error: ERROR_MESSAGE.USER_NOT_FOUND });
+          });
+        }
+
+        // Commit transaction if both updates succeed
+        db.run("COMMIT;", (err) => {
+          if (err) {
+            return res.status(500).json({ error: "Failed to commit transaction" });
+          }
+          res.status(204).send();
+        });
+      });
+    });
   });
 });
 
@@ -130,7 +162,7 @@ app.post("/posts", (req, res) => {
   // Validate user_id exists
   db.get("SELECT * FROM users WHERE id = ?", [user_id], (err, user) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (!user) return res.status(400).json({ error: err.message });
+    if (!user) return res.status(400).json({ error: ERROR_MESSAGE.USER_NOT_FOUND }); // why not return 404 USER_NOT_FOUND?
 
     db.run(
       "INSERT INTO posts (title, content, user_id) VALUES (?, ?, ?)",
@@ -146,7 +178,7 @@ app.post("/posts", (req, res) => {
 app.get("/posts/:id", (req, res) => {
   db.get("SELECT * FROM posts WHERE id = ?", [req.params.id], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (!row) return res.status(404).json({ error: ERROR_MESSAGE.USER_NOT_FOUND });
+    if (!row) return res.status(404).json({ error: ERROR_MESSAGE.POST_NOT_FOUND });
     res.json(row);
   });
 });
@@ -178,7 +210,7 @@ app.put("/posts/:id", (req, res) => {
     db.run(updateQuery, params,
       function (err) {
         if (err) return res.status(500).json({ error: err.message });
-        if (this.changes === 0) return res.status(404).json({ error: ERROR_MESSAGE.USER_NOT_FOUND });
+        if (this.changes === 0) return res.status(404).json({ error: ERROR_MESSAGE.POST_NOT_FOUND });
         
         // update does not support RETURNING * so run SELECT
         db.get("SELECT * FROM posts WHERE id = ?", [req.params.id], (err, row) => {
@@ -194,7 +226,7 @@ app.put("/posts/:id", (req, res) => {
 app.delete("/posts/:id", (req, res) => {
   db.run("DELETE FROM posts WHERE id = ?", [req.params.id], function (err) {
     if (err) return res.status(500).json({ error: err.message });
-    if (this.changes === 0) return res.status(404).json({ error: ERROR_MESSAGE.USER_NOT_FOUND });
+    if (this.changes === 0) return res.status(404).json({ error: ERROR_MESSAGE.POST_NOT_FOUND });
     res.status(204).send();
   });
 });
