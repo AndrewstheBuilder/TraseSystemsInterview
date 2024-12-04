@@ -30,6 +30,7 @@ db.serialize(() => {
       content TEXT NOT NULL,
       user_id INTEGER NOT NULL,
       FOREIGN KEY (user_id) REFERENCES users (id)
+      CONSTRAINT unique_title_user_id UNIQUE (title, user_id)
     )
   `);
 
@@ -153,19 +154,38 @@ app.get("/posts/:id", (req, res) => {
 app.put("/posts/:id", (req, res) => {
   const { title, content, user_id } = req.body;
 
-  // Validate user_id exists
-  // TODO: modify this to ensure that we take in whichever of the user's input that gets passed!
   db.get("SELECT * FROM users WHERE id = ?", [user_id], (err, user) => {
     if (err) return res.status(500).json({ error: err.message });
-    if (!user) return res.status(400).json({ error: err.message });
-
-    db.run(
-      "UPDATE posts SET title = ?, content = ?, user_id = ? WHERE id = ?",
-      [title, content, user_id, req.params.id],
+    if (!user) return res.status(400).json({ error: ERROR_MESSAGE.USER_NOT_FOUND });
+    const updates = [];
+    const params = [];
+    if (title) {
+      updates.push("title = ?");
+      params.push(title);
+    }
+    if (content) {
+      updates.push("content = ?");
+      params.push(content);
+    }
+    if (user_id) {
+      // we can update a post's user!
+      updates.push("user_id = ?");
+      params.push(user_id);
+    }
+    if (updates.length === 0) return res.status(400).json({ error: "No fields to update" });
+    const updateQuery = `UPDATE posts SET ${updates.join(", ")} WHERE id = ?`;
+    params.push(req.params.id);
+    db.run(updateQuery, params,
       function (err) {
         if (err) return res.status(500).json({ error: err.message });
         if (this.changes === 0) return res.status(404).json({ error: ERROR_MESSAGE.USER_NOT_FOUND });
-        res.json({ id: req.params.id, title, content, user_id });
+        
+        // update does not support RETURNING * so run SELECT
+        db.get("SELECT * FROM posts WHERE id = ?", [req.params.id], (err, row) => {
+          if (err) return res.status(500).json({ error: err.message });
+          if (!row) return res.status(404).json({ error: "Post not found" });
+          res.json(row);
+        });
       }
     );
   });
