@@ -69,6 +69,19 @@ app.post("/users", (req, res) => {
   });
 });
 
+app.get("/users/:user_id/posts", (req, res) => {
+  const { name, email } = req.body;
+  const getUserSql = "SELECT * FROM users WHERE id = ?";
+  db.get(getUserSql, [req.params.user_id], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: ERROR_MESSAGE.USER_NOT_FOUND });
+    db.all("SELECT * FROM posts WHERE user_id = ?",[req.params.user_id] (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows);
+    });
+  });
+});
+
 app.get("/users/:id", (req, res) => {
   db.get("SELECT * FROM users WHERE id = ?", [req.params.id], (err, row) => {
     if (err) return res.status(500).json({ error: err.message });
