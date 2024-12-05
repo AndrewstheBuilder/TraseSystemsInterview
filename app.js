@@ -238,4 +238,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { app, db };
+module.exports = app;
